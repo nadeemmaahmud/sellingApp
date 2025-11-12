@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Unit, Service, Sell, PrivacyPolicy, TermsAndConditions, AboutUs, EmailVerificationToken, PasswordResetOTP
+from main.models import CustomUser, Unit, Service, Sell, PrivacyPolicy, TermsAndConditions, AboutUs
+from .models import EmailVerificationToken, PasswordResetOTP
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -11,7 +12,7 @@ class CustomUserAdmin(UserAdmin):
     
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('first_name', 'last_name', 'date_of_birth', 'phone', 'address', 'zip_code')}),
+        ('Personal Info', {'fields': ('first_name', 'last_name', 'date_of_birth', 'phone', 'address', 'zip_code', 'profile_pic')}),
         ('Permissions', {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
