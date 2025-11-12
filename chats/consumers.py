@@ -2,7 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
-from .models import ChatMessage
+from .models import ChatMessage, ChatRoom
 
 User = get_user_model()
 
@@ -14,17 +14,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         
-        if self.user.is_staff:
-            self.room_name = f"admin_{self.user.id}"
-        else:
-            admin_users = await self.get_admin_users()
-            if not admin_users:
-                await self.close()
-                return
-            self.admin_user = admin_users[0]
-            self.room_name = f"user_{self.user.id}_admin_{self.admin_user.id}"
+        self.chat_room_id = self.scope['url_route']['kwargs'].get('room_id')
         
-        self.room_group_name = f"chat_{self.room_name}"
+        if not self.chat_room_id:
+            await self.close()
+            return
+        
+        chat_room = await self.get_chat_room(self.chat_room_id)
+        
+        if not chat_room:
+            await self.close()
+            return
+        
+        self.room_group_name = f"chat_room_{self.chat_room_id}"
         
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -33,7 +35,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         await self.accept()
         
-        chat_history = await self.get_chat_history()
+        chat_history = await self.get_chat_history(self.chat_room_id)
         await self.send(text_data=json.dumps({
             'type': 'chat_history',
             'messages': chat_history
@@ -58,25 +60,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            if self.user.is_staff:
-                receiver_id = data.get('receiver_id')
-                if not receiver_id:
-                    await self.send(text_data=json.dumps({
-                        'type': 'error',
-                        'message': 'Receiver ID is required for admin'
-                    }))
-                    return
-                receiver = await self.get_user_by_id(receiver_id)
-                if not receiver:
-                    await self.send(text_data=json.dumps({
-                        'type': 'error',
-                        'message': 'Receiver not found'
-                    }))
-                    return
-            else:
-                receiver = self.admin_user
+            chat_message = await self.save_message(self.chat_room_id, self.user, message)
             
-            chat_message = await self.save_message(self.user, receiver, message)
+            if not chat_message:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Failed to save message'
+                }))
+                return
             
             message_data = {
                 'type': 'chat_message',
@@ -88,12 +79,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         'first_name': self.user.first_name,
                         'last_name': self.user.last_name,
                     },
-                    'receiver': {
-                        'id': receiver.id,
-                        'email': receiver.email,
-                        'first_name': receiver.first_name,
-                        'last_name': receiver.last_name,
-                    },
                     'message': message,
                     'timestamp': chat_message.timestamp.isoformat(),
                     'is_read': chat_message.is_read
@@ -104,19 +89,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 message_data
             )
-            
-            if self.user.is_staff:
-                user_room_group = f"chat_user_{receiver.id}_admin_{self.user.id}"
-                await self.channel_layer.group_send(
-                    user_room_group,
-                    message_data
-                )
-            else:
-                admin_room_group = f"chat_admin_{receiver.id}"
-                await self.channel_layer.group_send(
-                    admin_room_group,
-                    message_data
-                )
         
         except Exception as e:
             await self.send(text_data=json.dumps({
@@ -128,61 +100,53 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(event))
     
     @database_sync_to_async
-    def get_admin_users(self):
-        return list(User.objects.filter(is_staff=True, is_active=True))
-    
-    @database_sync_to_async
-    def get_user_by_id(self, user_id):
+    def get_chat_room(self, room_id):
         try:
-            return User.objects.get(id=user_id, is_active=True)
-        except User.DoesNotExist:
+            if self.user.is_staff:
+                return ChatRoom.objects.get(id=room_id, admin=self.user, is_active=True)
+            else:
+                return ChatRoom.objects.get(id=room_id, user=self.user, is_active=True)
+        except ChatRoom.DoesNotExist:
             return None
     
     @database_sync_to_async
-    def save_message(self, sender, receiver, message):
-        return ChatMessage.objects.create(
-            sender=sender,
-            receiver=receiver,
-            message=message
-        )
+    def save_message(self, room_id, sender, message):
+        try:
+            chat_room = ChatRoom.objects.get(id=room_id, is_active=True)
+            
+            if sender.is_staff and chat_room.admin != sender:
+                return None
+            elif not sender.is_staff and chat_room.user != sender:
+                return None
+            
+            return ChatMessage.objects.create(
+                chat_room=chat_room,
+                sender=sender,
+                message=message
+            )
+        except ChatRoom.DoesNotExist:
+            return None
     
     @database_sync_to_async
-    def get_chat_history(self):
-        if self.user.is_staff:
-            messages = ChatMessage.objects.filter(
-                sender=self.user
-            ) | ChatMessage.objects.filter(
-                receiver=self.user
-            )
-        else:
-            messages = ChatMessage.objects.filter(
-                sender=self.user,
-                receiver__is_staff=True
-            ) | ChatMessage.objects.filter(
-                sender__is_staff=True,
-                receiver=self.user
-            )
-        
-        messages = messages.order_by('timestamp')[:100]
-        
-        return [
-            {
-                'id': msg.id,
-                'sender': {
-                    'id': msg.sender.id,
-                    'email': msg.sender.email,
-                    'first_name': msg.sender.first_name,
-                    'last_name': msg.sender.last_name,
-                },
-                'receiver': {
-                    'id': msg.receiver.id,
-                    'email': msg.receiver.email,
-                    'first_name': msg.receiver.first_name,
-                    'last_name': msg.receiver.last_name,
-                },
-                'message': msg.message,
-                'timestamp': msg.timestamp.isoformat(),
-                'is_read': msg.is_read
-            }
-            for msg in messages
-        ]
+    def get_chat_history(self, room_id):
+        try:
+            chat_room = ChatRoom.objects.get(id=room_id)
+            messages = chat_room.messages.all().order_by('timestamp')[:100]
+            
+            return [
+                {
+                    'id': msg.id,
+                    'sender': {
+                        'id': msg.sender.id,
+                        'email': msg.sender.email,
+                        'first_name': msg.sender.first_name,
+                        'last_name': msg.sender.last_name,
+                    },
+                    'message': msg.message,
+                    'timestamp': msg.timestamp.isoformat(),
+                    'is_read': msg.is_read
+                }
+                for msg in messages
+            ]
+        except ChatRoom.DoesNotExist:
+            return []
