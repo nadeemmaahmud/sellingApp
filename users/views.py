@@ -42,20 +42,21 @@ class RegisterView(APIView):
                 send_mail(
                     email_subject,
                     email_message,
-                    settings.DEFAULT_FROM_EMAIL if hasattr(settings, 'DEFAULT_FROM_EMAIL') else 'noreply@sellnservice.com',
+                    settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                     fail_silently=False,
                 )
-                email_sent = True
             except Exception as e:
-                print(f"Email sending failed: {e}")
-                email_sent = False
+                EmailVerificationToken.objects.filter(user=user).delete()
+                user.delete()
+                return Response({
+                    'error': 'Failed to send verification email. Please try again later.',
+                    'details': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             return Response({
                 'message': 'User registered successfully. Please check your email for the verification code.',
-                'user': CustomUserSerializer(user).data,
-                'email_sent': email_sent,
-                'otp_code': verification_token.otp_code if not email_sent else None
+                'user': CustomUserSerializer(user).data
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -214,19 +215,18 @@ class ResendVerificationEmailView(APIView):
                 send_mail(
                     email_subject,
                     email_message,
-                    settings.DEFAULT_FROM_EMAIL if hasattr(settings, 'DEFAULT_FROM_EMAIL') else 'noreply@sellnservice.com',
+                    settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                     fail_silently=False,
                 )
-                email_sent = True
             except Exception as e:
-                print(f"Email sending failed: {e}")
-                email_sent = False
+                return Response({
+                    'error': 'Failed to send verification email. Please try again later.',
+                    'details': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             return Response({
-                'message': 'Verification code sent successfully. Please check your email.',
-                'email_sent': email_sent,
-                'otp_code': verification_token.otp_code if not email_sent else None
+                'message': 'Verification code sent successfully. Please check your email.'
             }, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -263,19 +263,18 @@ class ForgotPasswordView(APIView):
                 send_mail(
                     email_subject,
                     email_message,
-                    settings.DEFAULT_FROM_EMAIL if hasattr(settings, 'DEFAULT_FROM_EMAIL') else 'noreply@sellnservice.com',
+                    settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                     fail_silently=False,
                 )
-                email_sent = True
             except Exception as e:
-                print(f"Email sending failed: {e}")
-                email_sent = False
+                return Response({
+                    'error': 'Failed to send password reset email. Please try again later.',
+                    'details': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             return Response({
-                'message': 'Password reset code sent to your email.',
-                'email_sent': email_sent,
-                'otp_code': reset_otp.otp_code if not email_sent else None
+                'message': 'Password reset code sent to your email.'
             }, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
