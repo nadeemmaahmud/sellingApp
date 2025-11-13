@@ -2,7 +2,9 @@ from django.urls import path
 from .views import (
     UnitListCreateView, UnitDetailView, 
     ServiceListCreateView, ServiceDetailView, 
-    SellListCreateView, SellDetailView, 
+    SellListCreateView, SellDetailView
+)
+from admin.views import (
     PrivacyPolicyView, TermsAndConditionsView, AboutUsView,
     PrivacyPolicyManageView, PrivacyPolicyUpdateView,
     TermsAndConditionsManageView, TermsAndConditionsUpdateView,

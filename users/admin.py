@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from main.models import CustomUser, Unit, Service, Sell, PrivacyPolicy, TermsAndConditions, AboutUs
-from .models import EmailVerificationToken, PasswordResetOTP
+from main.models import Unit, Service, Sell
+from .models import CustomUser, EmailVerificationToken, PasswordResetOTP
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -49,23 +49,6 @@ class SellAdmin(admin.ModelAdmin):
     search_fields = ['unit__vin', 'buyer_name', 'buyer_email']
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['-sale_date']
-
-@admin.register(PrivacyPolicy)
-class PrivacyPolicyAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'effective_date', 'updated_at']
-    readonly_fields = ['created_at', 'updated_at']
-    ordering = ['-effective_date']
-
-@admin.register(TermsAndConditions)
-class TermsAndConditionsAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'effective_date', 'updated_at']
-    readonly_fields = ['created_at', 'updated_at']
-    ordering = ['-effective_date']
-
-@admin.register(AboutUs)
-class AboutUsAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'updated_at']
-    readonly_fields = ['created_at', 'updated_at']
 
 @admin.register(EmailVerificationToken)
 class EmailVerificationTokenAdmin(admin.ModelAdmin):

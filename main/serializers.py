@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Unit, Service, Sell, PrivacyPolicy, TermsAndConditions, AboutUs
+from .models import Unit, Service, Sell
 
 class UnitSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
@@ -52,20 +52,3 @@ class SellSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Sale price must be greater than zero.")
         return value
 
-class PrivacyPolicySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PrivacyPolicy
-        fields = ['id', 'content', 'effective_date', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-class TermsAndConditionsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TermsAndConditions
-        fields = ['id', 'content', 'effective_date', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-class AboutUsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AboutUs
-        fields = ['id', 'content', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
