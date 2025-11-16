@@ -1,11 +1,15 @@
 import os
-from dotenv import load_dotenv
+import asyncio
+from django.conf import settings
 from groq import Groq
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 
-load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+def _get_groq_client():
+    api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is not set")
+    return Groq(api_key=api_key)
 
 ALLOWED_KEYWORDS = [
 
@@ -122,6 +126,7 @@ def test_openai_api(promt, conversation_history=None):
 
         messages.append({"role": "user", "content": promt})
         
+        client = _get_groq_client()
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=messages,
