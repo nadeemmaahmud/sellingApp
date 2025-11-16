@@ -22,7 +22,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'daphne',
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'main',
     'chats',
     'admin',
+    'chat_bot',
 ]
 
 MIDDLEWARE = [
@@ -153,7 +154,7 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER'))
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# CORS Configuration
+
 CORS_ALLOWED_ORIGINS = os.getenv(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:3000,http://localhost:3001,http://localhost:8080,http://127.0.0.1:3000'
